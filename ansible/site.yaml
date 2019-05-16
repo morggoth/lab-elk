@@ -1,0 +1,103 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+    - name: Install packages
+      apt:
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - nginx
+          - apt-transport-https
+          - openjdk-8-jdk
+
+    - name: Add ELK repo key
+      apt_key:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        state: present
+    - name: Add ELK repo
+      apt_repository:
+        repo: deb https://artifacts.elastic.co/packages/7.x/apt stable main
+        state: present
+
+    - name: Install elasticsearch
+      apt:
+        name: elasticsearch
+        state: present
+        update_cache: yes
+      notify:
+        - elasticsearch restart
+    - name: Copy elasticsearch config
+      copy:
+        src: files/elasticsearch/elasticsearch.yml
+        dest: /etc/elasticsearch/elasticsearch.yml
+      notify:
+        - elasticsearch restart
+
+    - name: Install kibana
+      apt:
+        name: kibana
+        state: present
+      notify:
+        - kibana restart
+    - name: Copy nginx config
+      copy:
+        src: files/nginx/example.com.conf
+        dest: /etc/nginx/sites-available/example.com
+      notify:
+        - nginx restart
+    - name: Disable default vhost
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify:
+        - nginx restart
+    - name: Enable vhost
+      file:
+        dest: /etc/nginx/sites-enabled/example.com
+        src: /etc/nginx/sites-available/example.com
+        state: link
+      notify:
+        - nginx restart
+
+    - name: Mkdir /etc/default/logstash/
+      file:
+        path: /etc/default/logstash
+        state: touch
+    - name: Install logstash
+      apt:
+        name: logstash
+        state: present
+      notify:
+        - logstash restart
+    - name: Copy logstash configs
+      copy:
+        src: files/logstash/
+        dest: /etc/logstash/conf.d
+      notify:
+        - logstash restart
+
+  handlers:
+    - name: nginx restart
+      systemd:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+    - name: elasticsearch restart
+      systemd:
+        name: elasticsearch
+        state: restarted
+        enabled: yes
+
+    - name: kibana restart
+      systemd:
+        name: kibana
+        state: restarted
+        enabled: yes
+
+    - name: logstash restart
+      systemd:
+        name: logstash
+        state: restarted
+        enabled: yes
