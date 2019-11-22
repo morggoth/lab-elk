@@ -12,6 +12,7 @@ Vagrant.configure('2') do |config|
     vb.cpus = '2'
   end
   config.vm.provision 'shell', inline: <<-SHELL
+    apt update && apt upgrade -y
     apt install python -y
   SHELL
   config.vm.provision 'ansible' do |ansible|
